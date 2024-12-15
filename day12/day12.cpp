@@ -109,20 +109,39 @@ int get_region_area(vector<string> &map, coord field) {
     return res;
 }
 
-int get_region_sides(vector<string> &map, unordered_set<pair<coord, coord>, pair_hash> &sides, coord field) {
-    map.at(field.x).at(field.y) = tolower(map.at(field.x).at(field.y));
-    for (int i = 0; i < directions.size(); i++) {
-        coord next = field + directions.at(i);
-        if (within(map, next) && toupper(map.at(field.x).at(field.y)) == map.at(next.x).at(next.y)) {
-            get_region_sides(map, sides, next);
-        } else if (!within(map, next) || map.at(field.x).at(field.y) != map.at(next.x).at(next.y)) {
-            if (i > 0 && i < 2) {
-                sides.insert({{0, field.y}, directions.at(i)});
-            } else {
-                sides.insert({{field.x, 0}, directions.at(i)});
+int check_border(vector<string> &map, coord field, coord dir, vector<coord> dirs) {
+    vector<bool> side(4, false);
+    int result = 0;
+    while (within(map, field)) {
+        if (islower(map.at(field.x).at(field.y))) {
+            for (int k = 0; k < dirs.size(); k++) {
+                coord next = field + dirs.at(k);
+                if (!within(map, next) || isupper(map.at(next.x).at(next.y))) {
+                    if (!side.at(k)) {
+                        result++;
+                    }
+                    side.at(k) = true;
+                } else {
+                    side.at(k) = false;
+                }
             }
+        } else {
+            side = vector<bool>(4, false);
         }
+        field += dir;
     }
+    return result;
+}
+
+int get_region_sides(vector<string> &map) {
+    int result = 0;
+    for (int i = 0; i < map.size(); i++) {
+        result += check_border(map, {i, 0}, {0, 1}, {{1, 0}, {-1, 0}});
+    }
+    for (int i = 0; i < map.at(0).size(); i++) {
+        result += check_border(map, {0, i}, {1, 0}, {{0, 1}, {0, -1}});
+    }
+    return result;
 }
 
 int get_region_value2(vector<string> &map, vector<vector<bool>> &visited, coord field) {
@@ -131,6 +150,8 @@ int get_region_value2(vector<string> &map, vector<vector<bool>> &visited, coord 
     }
 
     int area = get_region_area(map, field);
+    int per = get_region_sides(map);
+
     for (int i = 0; i < map.size(); i++) {
         for (int j = 0; j < map.at(i).size(); j++) {
             if (islower(map.at(i).at(j))) {
@@ -139,9 +160,6 @@ int get_region_value2(vector<string> &map, vector<vector<bool>> &visited, coord 
             }
         }
     }
-    unordered_set<pair<coord, coord>, pair_hash> sides;
-    get_region_sides(map, sides, field);
-    int per = sides.size();
 
     cout << "field : " << map.at(field.x).at(field.y) << " has area : " << area << " and per : " << per << "\n";
     return area * per;
