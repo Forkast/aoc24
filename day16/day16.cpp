@@ -155,20 +155,58 @@ vector<record> possible_steps(vector<T> &map, unordered_map<pair<icoord, icoord>
     return ret;
 }
 
-void reconstruct(const unordered_map<icoord, vector<record>, coord_hash<int>> &path, unordered_set<icoord, coord_hash<int>> &distinct, icoord field, icoord end) {
-    cout << "Reconstruct: (" << field.x << ", " << field.y << ")\n";
-    distinct.insert(field);
-    if (field == end) {
-        cout << "Ending game: " << field.x << " " << field.y << "\n";
+void reconstruct(const unordered_map<pair<icoord, icoord>, vector<record>, pair_hash> &path, unordered_set<icoord, coord_hash<int>> &distinct, pair<icoord, icoord> field, pair<icoord, icoord> end) {
+    // cout << "Reconstruct: (" << field.first.x << ", " << field.first.y << ")\n";
+    distinct.insert(field.first);
+    if (field.first == end.first) {
+        // cout << "Ending game: " << field.first.x << " " << field.first.y << "\n";
         return;
     }
-    if (path.at(field).size() > 1) {
-        cout << "Branching\n";
-    }
+    // if (path.at(field).size() > 1) {
+        // cout << "Branching\n";
+    // }
     for (auto &r : path.at(field)) {
-        if (!distinct.contains(r.start)) {
-            reconstruct(path, distinct, r.start, end);
+        reconstruct(path, distinct, {r.start, r.dir}, end);
+    }
+}
+
+void run_bfs(const icoord &start, const icoord &dir, unordered_map<pair<icoord, icoord>, int, pair_hash> &visited, vector<string> &map, long long &result, unordered_map<pair<icoord, icoord>, vector<record>, pair_hash> &path) {
+    priority_queue<record> Q;
+    Q.push({start, dir, 0});
+    while (!Q.empty()) {
+        record curr = Q.top();
+        Q.pop();
+
+        if (visited.contains({curr.start, curr.dir}) && visited.at({curr.start, curr.dir}) >= curr.score) {
+            visited[{curr.start, curr.dir}] = curr.score;
+        } else if (visited.contains({curr.start, curr.dir}) && visited.at({curr.start, curr.dir}) < curr.score) {
+            continue;
         }
+
+        // cout << "being at " << curr.start.x << ", " << curr.start.y << " facing " << curr.dir.x << ", " << curr.dir.y << " with score " << curr.score << "\n";
+        if (at(map, curr.start) == 'E') {
+            result = curr.score;
+            break;
+        }
+
+        auto next = possible_steps(map, visited, curr);
+        for (const auto &n : next) {
+            // cout << "possible step: (" << n.start.x << ", " << n.start.y << ") facing: (" << n.dir.x << ", " << n.dir.y << ") with score " << n.score << "\n";
+            Q.push(n);
+            // cout << "worked1 " << path.contains({n.start, n.dir}) << "\n";
+            // if (path.contains({n.start, n.dir})) {
+                // cout << "worked2 " << path.at({n.start, n.dir}).at(0).score << "\n";
+            // }
+            if (!path.contains({n.start, n.dir}) || path.at({n.start, n.dir}).at(0).score >= n.score) {
+                // cout << "worked\n";
+                if (!path.contains({n.start, n.dir})) {
+                    path[{n.start, n.dir}] = {};
+                }
+                
+                path.at({n.start, n.dir}).push_back(record{curr.start, curr.dir, n.score});
+            }
+        }
+        // show(map);
     }
 }
 
@@ -181,9 +219,7 @@ void part1() {
     icoord end;
     icoord dir{0, 1};
 
-    unordered_map<icoord, vector<record>, coord_hash<int>> path;
-
-    priority_queue<record> Q;
+    unordered_map<pair<icoord, icoord>, vector<record>, pair_hash> path;
 
     for (string line; getline(input, line);) {
         cout << "line: " << line << "\n";
@@ -199,36 +235,12 @@ void part1() {
     }
     unordered_map<pair<icoord, icoord>, int, pair_hash> visited;
     
-    Q.push({start, dir, 0});
-    while (!Q.empty()) {
-        record curr = Q.top();
-        Q.pop();
-        // cout << "being at " << curr.start.x << ", " << curr.start.y << " facing " << curr.dir.x << ", " << curr.dir.y << " with score " << curr.score << "\n";
-        if (at(map, curr.start) == 'E') {
-            result = curr.score;
-            break;
-        }
-        auto next = possible_steps(map, visited, curr);
-        for (const auto &n : next) {
-            Q.push(n);
-            if (!path.contains(n.start) || !visited.contains({n.start, n.dir}) || visited.at({n.start, n.dir}) >= n.score) {
-                visited[{n.start, n.dir}] = n.score;
-                if (!path.contains(n.start) && n.start != curr.start) {
-                    path[n.start] = {};
-                }
-                
-                if (n.start != curr.start) {
-                    path.at(n.start).push_back(curr);
-                }
-            }
-        }
-        // show(map);
-    }
+    run_bfs(start, dir, visited, map, result, path);
     show(map);
     cout << result << "\n";
 
     unordered_set<icoord, coord_hash<int>> distinct;
-    reconstruct(path, distinct, end, start);
+    reconstruct(path, distinct, {end, icoord{-1, 0}}, {start, icoord{-1, 0}});
     result = distinct.size();
 
     for (auto r : distinct) {
